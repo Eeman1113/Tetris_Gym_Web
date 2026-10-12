@@ -269,6 +269,37 @@ function TouchPad({ pad, onMenu }) {
   // Last direction set per live pointer, for the slide-across-the-d-pad tick.
   const dirs = useRef(new Map());
 
+  // Which pieces of art each live pointer is lighting up. Haptics are not
+  // dependable — iOS Safari has no navigator.vibrate at all, and a silenced
+  // phone suppresses the rest — so a press has to be visible. Kept out of
+  // React state and applied straight to the DOM: a press must never cost a
+  // re-render of 800 rects, and the art is memoised precisely so it doesn't.
+  const art = useRef(new Map()); // visual id -> <g>
+  const litBy = useRef(new Map()); // pointer token -> Set<visual id>
+  const regArt = (id) => (el) => {
+    if (el) art.current.set(id, el);
+    else art.current.delete(id);
+  };
+  // Sets the class on every registered piece rather than diffing against what
+  // was set last time: a React re-render would rewrite className from the JSX
+  // and silently drop a class a diff still believed was there.
+  const syncArt = () => {
+    const want = new Set();
+    for (const ids of litBy.current.values()) for (const id of ids) want.add(id);
+    for (const [id, el] of art.current) el.classList.toggle("down", want.has(id));
+  };
+  const light = (tok, ids) => {
+    if (ids && ids.size) litBy.current.set(tok, ids);
+    else litBy.current.delete(tok);
+    syncArt();
+  };
+  const ARROW_OF = {
+    [BTN.UP]: "up",
+    [BTN.DOWN]: "down",
+    [BTN.LEFT]: "left",
+    [BTN.RIGHT]: "right",
+  };
+
   // This component unmounts the instant a real controller is detected. If a
   // thumb is down at that moment no pointerup, pointercancel or
   // lostpointercapture ever reaches the removed element, so without this the
@@ -277,6 +308,8 @@ function TouchPad({ pad, onMenu }) {
   useEffect(() => {
     const releaseAll = () => {
       dirs.current.clear();
+      litBy.current.clear();
+      syncArt();
       pad.releaseNamespace("t:");
     };
     const onHide = () => {
@@ -298,15 +331,17 @@ function TouchPad({ pad, onMenu }) {
   const end = useCallback(
     (e) => {
       dirs.current.delete(token(e));
+      light(token(e), EMPTY);
       pad.hold(token(e), EMPTY);
     },
     [pad]
   );
 
-  const btnProps = (btn) => ({
+  const btnProps = (btn, id) => ({
     onPointerDown: (e) => {
       grab(e);
       buzz(6);
+      light(token(e), new Set([id]));
       pad.hold(token(e), new Set([btn]));
     },
     onPointerUp: end,
@@ -342,6 +377,7 @@ function TouchPad({ pad, onMenu }) {
       const next = dpadAt(e);
       if (next.size) buzz(6); // a dead-centre press holds nothing, so stays silent
       dirs.current.set(token(e), next);
+      light(token(e), new Set([...next].map((b) => ARROW_OF[b])));
       pad.hold(token(e), next);
     },
     onPointerMove: (e) => {
@@ -349,6 +385,7 @@ function TouchPad({ pad, onMenu }) {
       const next = dpadAt(e);
       if (!sameDirs(dirs.current.get(token(e)), next)) {
         dirs.current.set(token(e), next);
+        light(token(e), new Set([...next].map((b) => ARROW_OF[b])));
         if (next.size) buzz(3); // crossed into a new direction mid-slide
       }
       pad.hold(token(e), next);
@@ -394,16 +431,21 @@ function TouchPad({ pad, onMenu }) {
         fill="var(--dpad-dark)"
       />
       <path d={plus(DPAD.cx, DPAD.cy, RING + 2 * BAND)} fill="var(--dpad)" />
-      <g fill="var(--arrow)">
-        {/* Tips sit inside the face of each arm, clear of the bevel: the
-            vertical face runs y 44..104 and the horizontal one x 12..76. The
-            horizontal pair takes one step fewer because that arm is the
-            shorter of the two in the reference, exactly as it is here. */}
-        <Arrow dir="up" tx={44} ty={45} />
-        <Arrow dir="down" tx={44} ty={103} />
-        <Arrow dir="left" tx={13} ty={74} n={5} />
-        <Arrow dir="right" tx={75} ty={74} n={5} />
-      </g>
+      {/* Tips sit inside the face of each arm, clear of the bevel: the
+          vertical face runs y 44..104 and the horizontal one x 12..76. The
+          horizontal pair takes one step fewer because that arm is the shorter
+          of the two in the reference, exactly as it is here. Each arrow is its
+          own group so a held direction can light up on its own. */}
+      {[
+        { dir: "up", tx: 44, ty: 45, n: 6 },
+        { dir: "down", tx: 44, ty: 103, n: 6 },
+        { dir: "left", tx: 13, ty: 74, n: 5 },
+        { dir: "right", tx: 75, ty: 74, n: 5 },
+      ].map(({ dir, tx, ty, n }) => (
+        <g key={dir} className="key" ref={regArt(dir)} fill="var(--c-arrow)">
+          <Arrow dir={dir} tx={tx} ty={ty} n={n} />
+        </g>
+      ))}
       <Disc
         cx={44}
         cy={74}
@@ -443,42 +485,54 @@ function TouchPad({ pad, onMenu }) {
         )}
       </g>
       {FACE.map(({ id, cx, cy }) => (
-        <Disc
+        <g
           key={id}
-          cx={cx}
-          cy={cy}
-          r={14}
-          step={2}
-          base={`var(--btn-${id})`}
-          lit={`var(--btn-${id}-lit)`}
-          dark={`var(--btn-${id}-dark)`}
-          outline="var(--outline)"
-        />
-      ))}
-      {FACE.map(({ id, cx, cy }) => (
-        <Word
-          key={id}
-          text={id}
-          cx={cx}
-          top={cy - 7}
-          scale={2}
-          fill={`var(--btn-${id}-ink)`}
-        />
+          className="key"
+          ref={regArt(id)}
+          style={{
+            "--up-base": `var(--btn-${id})`,
+            "--up-lit": `var(--btn-${id}-lit)`,
+            "--up-dark": `var(--btn-${id}-dark)`,
+          }}
+        >
+          <Disc
+            cx={cx}
+            cy={cy}
+            r={14}
+            step={2}
+            base="var(--c-base)"
+            lit="var(--c-lit)"
+            dark="var(--c-dark)"
+            outline="var(--outline)"
+          />
+          <Word text={id} cx={cx} top={cy - 7} scale={2} fill={`var(--btn-${id}-ink)`} />
+        </g>
       ))}
 
       {/* menu / select / start */}
       {CAPS.map(({ x, lx, label }) => (
         <g key={label}>
-          <Disc
-            cx={x}
-            cy={128}
-            r={6}
-            step={2}
-            base="var(--cap)"
-            lit="var(--cap-lit)"
-            dark="var(--cap-dark)"
-            outline="var(--outline)"
-          />
+          <g
+            className="key"
+            ref={regArt(label)}
+            style={{
+              "--up-base": "var(--cap)",
+              "--up-lit": "var(--cap-lit)",
+              "--up-dark": "var(--cap-dark)",
+            }}
+          >
+            <Disc
+              cx={x}
+              cy={128}
+              r={6}
+              step={2}
+              base="var(--c-base)"
+              lit="var(--c-lit)"
+              dark="var(--c-dark)"
+              outline="var(--outline)"
+            />
+          </g>
+          {/* the label is printed on the shell, so it does not sink */}
           <Word text={label} cx={lx} top={138} scale={1} fill="var(--ink)" />
         </g>
       ))}
@@ -496,20 +550,24 @@ function TouchPad({ pad, onMenu }) {
           {...dpadProps}
         />
         {FACE.map(({ id, cx, cy, btn }) => (
-          <circle key={id} cx={cx} cy={cy} r={16} {...btnProps(btn)} />
+          <circle key={id} cx={cx} cy={cy} r={16} {...btnProps(btn, id)} />
         ))}
-        <circle cx={80} cy={129} r={12} {...btnProps(BTN.SELECT)} />
-        <circle cx={112} cy={129} r={12} {...btnProps(BTN.START)} />
+        <circle cx={80} cy={129} r={12} {...btnProps(BTN.SELECT, "SELECT")} />
+        <circle cx={112} cy={129} r={12} {...btnProps(BTN.START, "START")} />
         <circle
           cx={11}
           cy={129}
           r={12}
           onContextMenu={(e) => e.preventDefault()}
           onPointerDown={(e) => {
-            e.preventDefault();
+            grab(e);
             buzz(6);
+            light(token(e), new Set(["MENU"]));
             onMenu();
           }}
+          onPointerUp={(e) => light(token(e), EMPTY)}
+          onPointerCancel={(e) => light(token(e), EMPTY)}
+          onLostPointerCapture={(e) => light(token(e), EMPTY)}
         />
       </g>
     </svg>

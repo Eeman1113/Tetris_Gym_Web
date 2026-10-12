@@ -69,6 +69,7 @@ body {
   --dpad-lit: #3e3e3e;
   --dpad-dark: #101010;
   --arrow: #0d0d0d;
+  --arrow-on: #d8d8d8;
   --cluster: #8c8c8c;
   --cluster-lit: #a9a9a9;
   --cluster-dark: #6d6d6d;
@@ -111,6 +112,32 @@ body {
   cursor: pointer;
 }
 
+/* Pressed state. Haptics cannot be relied on — iOS Safari has no
+   navigator.vibrate at all, and a silenced phone suppresses the rest — so a
+   held button has to be unmistakable on screen. The part sinks one art pixel
+   down-right and its bevel inverts, which is how a real button reads when it
+   is pushed in: the light that was on the top-left is now on the
+   bottom-right. Directions light their arrow instead, since a d-pad arm that
+   moved would look broken. No transition: the feedback has to be immediate. */
+.pad .key {
+  --c-base: var(--up-base);
+  --c-lit: var(--up-lit);
+  --c-dark: var(--up-dark);
+  --c-arrow: var(--arrow);
+}
+
+.pad .key.down {
+  /* The face goes to the shadow tone and the only light left is a crescent
+     along the bottom-right, which is a button seen from above with its cap
+     pushed below the shell. Visible at a glance at thumb size, which a bevel
+     swap alone was not. */
+  --c-base: var(--up-dark);
+  --c-lit: var(--up-dark);
+  --c-dark: var(--up-lit);
+  --c-arrow: var(--arrow-on);
+  transform: translate(1px, 1px); /* one grid unit, not one CSS pixel */
+}
+
 @media (prefers-color-scheme: dark) {
   .pad {
     --panel: #dcd0f6;
@@ -123,6 +150,7 @@ body {
     --dpad-lit: #5a2bad;
     --dpad-dark: #240760;
     --arrow: #1b0346;
+    --arrow-on: #e5daf9;
     --cluster: #9b77e1;
     --cluster-lit: #b79bec;
     --cluster-dark: #7a55c2;
