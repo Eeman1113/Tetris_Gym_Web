@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#000"/>
+  <!-- An S-piece in NES Tetris' level-0 palette, drawn on the 8px grid. -->
+  <g shape-rendering="crispEdges">
+    <rect x="12" y="8"  width="8" height="8" fill="#0648b3"/>
+    <rect x="20" y="8"  width="8" height="8" fill="#0648b3"/>
+    <rect x="4"  y="16" width="8" height="8" fill="#d9101e"/>
+    <rect x="12" y="16" width="8" height="8" fill="#d9101e"/>
+  </g>
+</svg>
