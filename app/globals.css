@@ -333,3 +333,116 @@ body {
     --btn-B-ink: #553959;
   }
 }
+
+/* --- /auto ---------------------------------------------------------------
+   The autoplay page adds one strip under the picture: the eight buttons and a
+   plain readout of what the bot is looking at. It borrows nothing from the
+   touch pad's art — a controller drawn at thumb size has to be unmistakable,
+   a controller being watched only has to be unambiguous — but it keeps the
+   same rules: flat tones, hard 2px edges, no radius, nothing in motion except
+   the state that actually changed. */
+.auto .screen {
+  flex: 1 1 auto;
+}
+
+.hud {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px 28px;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  background: #000;
+  border-top: 2px solid #1c1c1c;
+  color: #8a8a8a;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* --- the buttons --- */
+.pl {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pl-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 18px);
+  grid-template-rows: repeat(3, 18px);
+  gap: 2px;
+}
+
+.pl-mid,
+.pl-face {
+  display: flex;
+  gap: 6px;
+}
+
+.pl-hub {
+  background: #141414;
+}
+
+.pl-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #0d0d0d;
+  border: 2px solid #262626;
+  color: #3f3f3f;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.pl-key.pl-wide {
+  width: 50px;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.pl-key.pl-round {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}
+
+/* Lit. One flat tone swap and a 1px outward bloom — enough to catch the eye at
+   a glance without anything sliding, fading or pulsing. */
+.pl-key.on {
+  background: #d8d8d8;
+  border-color: #f4f4f4;
+  color: #0a0a0a;
+  box-shadow: 0 0 0 1px #d8d8d8;
+}
+
+/* --- the readout --- */
+.hud-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 2px 18px;
+  margin: 0;
+  flex: 1 1 320px;
+}
+
+.hud-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #141414;
+  padding: 1px 0;
+}
+
+.hud-row dt {
+  color: #555;
+}
+
+.hud-row dd {
+  margin: 0;
+  color: #cfcfcf;
+  text-align: right;
+  white-space: nowrap;
+}
