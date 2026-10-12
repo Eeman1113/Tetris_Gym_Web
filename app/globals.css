@@ -53,36 +53,52 @@ body {
   padding: 0 24px;
 }
 
-/* Palette sampled from the reference skin. The purple set is the same skin's
-   other finish; it follows the system theme so neither needs a control. */
+/* Palette sampled from the reference skin, now stepped for pixel art: every
+   part gets a flat base, one -lit tone for the hard top-left highlight and one
+   -dark tone for the hard bottom-right shadow, over a single --outline. The
+   purple set is the same skin's other finish; it follows the system theme so
+   neither needs a control. */
 .pad {
+  --panel: #d8d8d8;
+  --outline: #0b0b0b;
   --tab: #242424;
-  --dpad-lit: #343434;
-  --dpad-dim: #141414;
+  --tab-lit: #3c3c3c;
+  --tab-dark: #121212;
+  --tab-ink: #f4f4f4;
+  --dpad: #242424;
+  --dpad-lit: #3e3e3e;
+  --dpad-dark: #101010;
   --arrow: #0d0d0d;
   --cluster: #8c8c8c;
+  --cluster-lit: #a9a9a9;
+  --cluster-dark: #6d6d6d;
   --ridge: #e2e2e2;
   --cap: #cfcfcf;
   --cap-lit: #efefef;
+  --cap-dark: #a8a8a8;
   --ink: #0a0a0a;
   --btn-X: #0648b3;
   --btn-X-lit: #2f72d8;
-  --btn-X-ink: #04337a;
+  --btn-X-dark: #04367f;
+  --btn-X-ink: #021b45;
   --btn-Y: #00953f;
   --btn-Y-lit: #2bbb66;
-  --btn-Y-ink: #006c2c;
+  --btn-Y-dark: #00702f;
+  --btn-Y-ink: #003515;
   --btn-A: #d9101e;
   --btn-A-lit: #ef4046;
-  --btn-A-ink: #9d0a14;
+  --btn-A-dark: #a60b16;
+  --btn-A-ink: #560309;
   --btn-B: #e8bb12;
   --btn-B-lit: #fcd645;
-  --btn-B-ink: #a8840a;
+  --btn-B-dark: #b8930c;
+  --btn-B-ink: #6b5303;
 
   display: block;
   flex: 0 0 auto;
   width: 100%;
   max-height: 52dvh;
-  background: var(--panel, linear-gradient(#e0e0e0, #d4d4d4));
+  background: var(--panel);
   padding-bottom: env(safe-area-inset-bottom);
   touch-action: none; /* the controls own every gesture inside them */
   user-select: none;
@@ -91,48 +107,45 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.pad text {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial,
-    sans-serif;
-  text-anchor: middle;
-}
-
-.pad .cap {
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.pad .face text {
-  font-weight: 800;
-}
-
 .pad .hit {
   cursor: pointer;
 }
 
 @media (prefers-color-scheme: dark) {
   .pad {
-    --panel: linear-gradient(#e4daf8, #d3c5f2);
+    --panel: #dcd0f6;
+    --outline: #180536;
     --tab: #31087a;
-    --dpad-lit: #4a1d9b;
-    --dpad-dim: #2c0a6b;
-    --arrow: #230459;
+    --tab-lit: #4a1d9b;
+    --tab-dark: #220556;
+    --tab-ink: #f3ecff;
+    --dpad: #3a1286;
+    --dpad-lit: #5a2bad;
+    --dpad-dark: #240760;
+    --arrow: #1b0346;
     --cluster: #9b77e1;
+    --cluster-lit: #b79bec;
+    --cluster-dark: #7a55c2;
     --ridge: #e5daf9;
     --cap: #d2c2ef;
     --cap-lit: #f3ecff;
+    --cap-dark: #a98fd4;
     --ink: #2b0a63;
     --btn-X: #381e9c;
     --btn-X-lit: #5b43bd;
-    --btn-X-ink: #24105f;
+    --btn-X-dark: #281070;
+    --btn-X-ink: #12032e;
     --btn-Y: #493999;
     --btn-Y-lit: #6b5bba;
-    --btn-Y-ink: #2f2369;
+    --btn-Y-dark: #33276f;
+    --btn-Y-ink: #171033;
     --btn-A: #8332a4;
     --btn-A-lit: #a556c4;
-    --btn-A-ink: #561a6e;
+    --btn-A-dark: #5f2278;
+    --btn-A-ink: #2d0c3c;
     --btn-B: #c8a5cd;
     --btn-B-lit: #e4cfe8;
-    --btn-B-ink: #8a6690;
+    --btn-B-dark: #a07fa6;
+    --btn-B-ink: #553959;
   }
 }
