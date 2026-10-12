@@ -114,11 +114,21 @@ body {
 
 /* Pressed state. Haptics cannot be relied on — iOS Safari has no
    navigator.vibrate at all, and a silenced phone suppresses the rest — so a
-   held button has to be unmistakable on screen. The part sinks one art pixel
-   down-right and its bevel inverts, which is how a real button reads when it
-   is pushed in: the light that was on the top-left is now on the
-   bottom-right. Directions light their arrow instead, since a d-pad arm that
-   moved would look broken. No transition: the feedback has to be immediate. */
+   held button has to be unmistakable on screen.
+
+   Everything below is sprite animation, not motion design: two frames per
+   event, stepped, every position a whole grid unit (1px here is 1 art pixel,
+   because the viewBox is 1:1 with the art grid). Only `transform` is ever
+   keyframed, and only on a dozen <g> elements — never on the ~800 child
+   rects, never on width/height/x/y/d/fill. Tone changes happen discretely on
+   the class toggle, which is one style recalc, not an animation. Nothing
+   loops and nothing runs while the pad is idle: an NES core is pacing itself
+   against the audio clock on this thread and every spare millisecond is its.
+
+   The press animation hangs off `.down` and the release animation off
+   `.armed:not(.down)`, so each one restarts every time its selector starts
+   matching again. A finger lifting mid-press swaps one for the other
+   immediately: the art can never be stranded looking held. */
 .pad .key {
   --c-base: var(--up-base);
   --c-lit: var(--up-lit);
@@ -135,7 +145,153 @@ body {
   --c-lit: var(--up-dark);
   --c-dark: var(--up-lit);
   --c-arrow: var(--arrow-on);
+}
+
+/* --- face buttons, MENU / SELECT / START ---------------------------------
+   Frame 1 (0-35ms): slammed 2 units down-right, so the very first painted
+   frame is a big displacement and the press never reads as late.
+   Frame 2 (35-70ms): settles back to 1 unit, which is also the held pose, so
+   the animation ending changes nothing.
+   Release, frame 1 (0-30ms): 1 unit past rest up-left — the cap popping
+   proud of the shell. Frame 2: rest. 60ms total, too short to feel floaty. */
+.pad .key.down:not(.arw) {
   transform: translate(1px, 1px); /* one grid unit, not one CSS pixel */
+  animation: key-press 70ms steps(1, end) 1;
+}
+
+.pad .key.armed:not(.down):not(.arw) {
+  animation: key-release 60ms steps(1, end) 1;
+}
+
+@keyframes key-press {
+  0% { transform: translate(2px, 2px); }
+  50%, 100% { transform: translate(1px, 1px); }
+}
+
+@keyframes key-release {
+  0% { transform: translate(-1px, -1px); }
+  50%, 100% { transform: translate(0, 0); }
+}
+
+/* --- d-pad: the plus tips like a rocker ----------------------------------
+   Pressing up, frame by frame:
+     f1 (0-40ms)  whole plus 2 units up, the up arm dropped to the shadow
+                  tone, the down arm raised to the highlight tone, the up
+                  arrow lit and punched 1 unit back down into its arm.
+     f2 (40-80ms) plus settles to 1 unit up, arrow back on its tip.
+     held         1 unit up, dark arm / lit arrow / lit opposite arm.
+   On release: f1 (0-30ms) 1 unit the other way — the arm springing back past
+   level — then f2 rest. Diagonals compose: up + left is 1 unit up and 1 unit
+   left, still whole units, because the pivot groups are nested. */
+.pad .piv-up.down {
+  transform: translate(0, -1px);
+  animation: piv-up-press 80ms steps(1, end) 1;
+}
+.pad .piv-down.down {
+  transform: translate(0, 1px);
+  animation: piv-down-press 80ms steps(1, end) 1;
+}
+.pad .piv-left.down {
+  transform: translate(-1px, 0);
+  animation: piv-left-press 80ms steps(1, end) 1;
+}
+.pad .piv-right.down {
+  transform: translate(1px, 0);
+  animation: piv-right-press 80ms steps(1, end) 1;
+}
+
+.pad .piv-up.armed:not(.down) { animation: piv-up-release 60ms steps(1, end) 1; }
+.pad .piv-down.armed:not(.down) { animation: piv-down-release 60ms steps(1, end) 1; }
+.pad .piv-left.armed:not(.down) { animation: piv-left-release 60ms steps(1, end) 1; }
+.pad .piv-right.armed:not(.down) { animation: piv-right-release 60ms steps(1, end) 1; }
+
+@keyframes piv-up-press {
+  0% { transform: translate(0, -2px); }
+  50%, 100% { transform: translate(0, -1px); }
+}
+@keyframes piv-down-press {
+  0% { transform: translate(0, 2px); }
+  50%, 100% { transform: translate(0, 1px); }
+}
+@keyframes piv-left-press {
+  0% { transform: translate(-2px, 0); }
+  50%, 100% { transform: translate(-1px, 0); }
+}
+@keyframes piv-right-press {
+  0% { transform: translate(2px, 0); }
+  50%, 100% { transform: translate(1px, 0); }
+}
+
+@keyframes piv-up-release {
+  0% { transform: translate(0, 1px); }
+  50%, 100% { transform: translate(0, 0); }
+}
+@keyframes piv-down-release {
+  0% { transform: translate(0, -1px); }
+  50%, 100% { transform: translate(0, 0); }
+}
+@keyframes piv-left-release {
+  0% { transform: translate(1px, 0); }
+  50%, 100% { transform: translate(0, 0); }
+}
+@keyframes piv-right-release {
+  0% { transform: translate(-1px, 0); }
+  50%, 100% { transform: translate(0, 0); }
+}
+
+/* The per-arm tones. Hidden at rest; a pressed direction sinks its own arm
+   and lifts the arm opposite. opacity only — flipped by the class, so no
+   colour is ever interpolated. Up+down and left+right cannot be held at
+   once (the hit-test picks one per axis), so a sink and a lift never land on
+   the same arm. */
+.pad .arms > rect {
+  opacity: 0;
+}
+.pad .piv-up.down .s-up,
+.pad .piv-up.down .l-down,
+.pad .piv-down.down .s-down,
+.pad .piv-down.down .l-up,
+.pad .piv-left.down .s-left,
+.pad .piv-left.down .l-right,
+.pad .piv-right.down .s-right,
+.pad .piv-right.down .l-left {
+  opacity: 1;
+}
+
+/* The lit arrow also jabs one unit back into its arm on the first frame and
+   returns on the second, which squashes the arm against the thumb while the
+   plus is travelling outward. Its held pose is its rest pose, so nothing is
+   left displaced. */
+.pad .arw-up.down { animation: arw-up-press 80ms steps(1, end) 1; }
+.pad .arw-down.down { animation: arw-down-press 80ms steps(1, end) 1; }
+.pad .arw-left.down { animation: arw-left-press 80ms steps(1, end) 1; }
+.pad .arw-right.down { animation: arw-right-press 80ms steps(1, end) 1; }
+
+@keyframes arw-up-press {
+  0% { transform: translate(0, 1px); }
+  50%, 100% { transform: translate(0, 0); }
+}
+@keyframes arw-down-press {
+  0% { transform: translate(0, -1px); }
+  50%, 100% { transform: translate(0, 0); }
+}
+@keyframes arw-left-press {
+  0% { transform: translate(1px, 0); }
+  50%, 100% { transform: translate(0, 0); }
+}
+@keyframes arw-right-press {
+  0% { transform: translate(-1px, 0); }
+  50%, 100% { transform: translate(0, 0); }
+}
+
+/* Reduced motion: no frames at all, just the held pose — the tone swap, the
+   sunk cap, the tipped plus, the lit arrow. The press stays every bit as
+   legible; it simply arrives in one step and leaves in one step. */
+@media (prefers-reduced-motion: reduce) {
+  .pad .key,
+  .pad .piv {
+    animation: none !important;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

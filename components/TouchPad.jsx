@@ -30,6 +30,30 @@ const BAND = 3; // step between the d-pad's shading layers
 
 const EMPTY = new Set();
 
+// The four directions, in the order the pivot groups nest.
+const DIRS = ["up", "down", "left", "right"];
+
+// The base face of each d-pad arm, clear of the bevels: `plus(44,74,RING+2*BAND)`
+// runs the vertical face x 38..50 and the horizontal face y 69..79, so these are
+// exactly the flat --dpad areas each arm shows. Used for the per-arm sink /
+// lift tones, which is how a press reads as a rocker tipping.
+const ARMS = [
+  { dir: "up", x: 38, y: 45, w: 12, h: 24 },
+  { dir: "down", x: 38, y: 79, w: 12, h: 24 },
+  { dir: "left", x: 13, y: 69, w: 25, h: 10 },
+  { dir: "right", x: 50, y: 69, w: 25, h: 10 },
+];
+
+// Arrow tips sit inside the face of each arm, clear of the bevel. The
+// horizontal pair takes one step fewer because that arm is the shorter of the
+// two in the reference, exactly as it is here.
+const ARROWS = [
+  { dir: "up", tx: 44, ty: 45, n: 6 },
+  { dir: "down", tx: 44, ty: 103, n: 6 },
+  { dir: "left", tx: 13, ty: 74, n: 5 },
+  { dir: "right", tx: 75, ty: 74, n: 5 },
+];
+
 // face cluster: a true diamond around (138,73), 27 units out on each axis.
 const FACE = [
   { id: "X", cx: 138, cy: 46, btn: BTN.A },
@@ -286,7 +310,16 @@ function TouchPad({ pad, onMenu }) {
   const syncArt = () => {
     const want = new Set();
     for (const ids of litBy.current.values()) for (const id of ids) want.add(id);
-    for (const [id, el] of art.current) el.classList.toggle("down", want.has(id));
+    for (const [id, el] of art.current) {
+      const on = want.has(id);
+      // `armed` latches the first time a piece is ever pressed. The release
+      // animation has to live on the not-down state — CSS cannot fire on a
+      // class going away — and without this latch every piece would play its
+      // spring-back once on mount. Nothing removes it; one classList.add on an
+      // element that already has the class is free.
+      if (on) el.classList.add("armed");
+      el.classList.toggle("down", on);
+    }
   };
   const light = (tok, ids) => {
     if (ids && ids.size) litBy.current.set(tok, ids);
@@ -298,6 +331,19 @@ function TouchPad({ pad, onMenu }) {
     [BTN.DOWN]: "down",
     [BTN.LEFT]: "left",
     [BTN.RIGHT]: "right",
+  };
+  // Visual ids a held direction set lights up: the arrow itself, and the pivot
+  // group that tips the whole plus that way. Purely visual — the button set
+  // handed to `pad.hold` is untouched.
+  const dpadArt = (buttons) => {
+    const ids = new Set();
+    for (const b of buttons) {
+      const dir = ARROW_OF[b];
+      if (!dir) continue;
+      ids.add(dir);
+      ids.add(`p:${dir}`);
+    }
+    return ids;
   };
 
   // This component unmounts the instant a real controller is detected. If a
@@ -377,7 +423,7 @@ function TouchPad({ pad, onMenu }) {
       const next = dpadAt(e);
       if (next.size) buzz(6); // a dead-centre press holds nothing, so stays silent
       dirs.current.set(token(e), next);
-      light(token(e), new Set([...next].map((b) => ARROW_OF[b])));
+      light(token(e), dpadArt(next));
       pad.hold(token(e), next);
     },
     onPointerMove: (e) => {
@@ -385,7 +431,7 @@ function TouchPad({ pad, onMenu }) {
       const next = dpadAt(e);
       if (!sameDirs(dirs.current.get(token(e)), next)) {
         dirs.current.set(token(e), next);
-        light(token(e), new Set([...next].map((b) => ARROW_OF[b])));
+        light(token(e), dpadArt(next));
         if (next.size) buzz(3); // crossed into a new direction mid-slide
       }
       pad.hold(token(e), next);
@@ -423,39 +469,84 @@ function TouchPad({ pad, onMenu }) {
       <Word text="L" cx={27} top={5} scale={1} fill="var(--tab-ink)" />
       <Word text="R" cx={164} top={5} scale={1} fill="var(--tab-ink)" />
 
-      {/* d-pad: one plus, outlined and stepped, with blocky arrows and a hub */}
-      <path d={plus(DPAD.cx, DPAD.cy, 0)} fill="var(--outline)" />
-      <path d={plus(DPAD.cx, DPAD.cy, RING)} fill="var(--dpad-lit)" />
-      <path
-        d={plus(DPAD.cx + BAND, DPAD.cy + BAND, RING + BAND)}
-        fill="var(--dpad-dark)"
-      />
-      <path d={plus(DPAD.cx, DPAD.cy, RING + 2 * BAND)} fill="var(--dpad)" />
-      {/* Tips sit inside the face of each arm, clear of the bevel: the
-          vertical face runs y 44..104 and the horizontal one x 12..76. The
-          horizontal pair takes one step fewer because that arm is the shorter
-          of the two in the reference, exactly as it is here. Each arrow is its
-          own group so a held direction can light up on its own. */}
-      {[
-        { dir: "up", tx: 44, ty: 45, n: 6 },
-        { dir: "down", tx: 44, ty: 103, n: 6 },
-        { dir: "left", tx: 13, ty: 74, n: 5 },
-        { dir: "right", tx: 75, ty: 74, n: 5 },
-      ].map(({ dir, tx, ty, n }) => (
-        <g key={dir} className="key" ref={regArt(dir)} fill="var(--c-arrow)">
-          <Arrow dir={dir} tx={tx} ty={ty} n={n} />
-        </g>
-      ))}
-      <Disc
-        cx={44}
-        cy={74}
-        r={8}
-        step={2}
-        base="var(--dpad)"
-        lit="var(--dpad-lit)"
-        dark="var(--dpad-dark)"
-        outline="var(--outline)"
-      />
+      {/* d-pad ----------------------------------------------------------
+          The whole plus — bevels, arm shading, arrows, hub — sits inside four
+          nested pivot groups, one per direction. A held direction puts `down`
+          on its own group, which shifts the assembly one whole grid unit that
+          way; a diagonal matches two groups and the two transforms multiply
+          into a clean one-unit-each diagonal. Nested rather than side by side
+          because this is one object, and transform is the only thing any of
+          them touches, so a press is a composited frame rather than work the
+          emulator has to pay for. */}
+      {DIRS.reduce(
+        (inner, dir) => (
+          <g key={dir} className={`piv piv-${dir}`} ref={regArt(`p:${dir}`)}>
+            {inner}
+          </g>
+        ),
+        <>
+          <path d={plus(DPAD.cx, DPAD.cy, 0)} fill="var(--outline)" />
+          <path d={plus(DPAD.cx, DPAD.cy, RING)} fill="var(--dpad-lit)" />
+          <path
+            d={plus(DPAD.cx + BAND, DPAD.cy + BAND, RING + BAND)}
+            fill="var(--dpad-dark)"
+          />
+          <path d={plus(DPAD.cx, DPAD.cy, RING + 2 * BAND)} fill="var(--dpad)" />
+          {/* One flat tone per arm, laid exactly over that arm's base face and
+              hidden at rest. A press drops the arm under the thumb to the
+              shadow tone and raises the arm opposite it to the highlight tone,
+              which is the rocker: one end pushed into the shell, the other end
+              tipped up. Switched by a class, never keyframed, so the colour
+              change costs one style recalc. Drawn before the arrows so the
+              arrows stay on top. */}
+          <g className="arms">
+            {ARMS.map(({ dir, x, y, w, h }) => (
+              <rect
+                key={dir}
+                className={`sink s-${dir}`}
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                fill="var(--dpad-dark)"
+              />
+            ))}
+            {ARMS.map(({ dir, x, y, w, h }) => (
+              <rect
+                key={dir}
+                className={`lift l-${dir}`}
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                fill="var(--dpad-lit)"
+              />
+            ))}
+          </g>
+          {/* Each arrow is its own group so a held direction can light up and
+              punch one unit back into its arm on its own. */}
+          {ARROWS.map(({ dir, tx, ty, n }) => (
+            <g
+              key={dir}
+              className={`key arw arw-${dir}`}
+              ref={regArt(dir)}
+              fill="var(--c-arrow)"
+            >
+              <Arrow dir={dir} tx={tx} ty={ty} n={n} />
+            </g>
+          ))}
+          <Disc
+            cx={44}
+            cy={74}
+            r={8}
+            step={2}
+            base="var(--dpad)"
+            lit="var(--dpad-lit)"
+            dark="var(--dpad-dark)"
+            outline="var(--outline)"
+          />
+        </>
+      )}
 
       {/* face cluster: a stepped grey disc, two light ridges, four buttons */}
       <Disc
